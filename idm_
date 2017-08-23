@@ -1,0 +1,149 @@
+#!/usr/bin/perl
+# -*- perl -*-
+
+=head1 NAME
+
+idm_ - Plugin to monitor various IdM web services
+
+=head1 CONFIGURATION
+
+Example configuration:
+
+[idm_*]
+    env.logfile /var/log/IdM/audit.log
+
+=head1 AUTHOR
+
+Copyright (C) 2017 Sean Porth <sporth@umass.edu>
+
+=head1 LICENSE
+
+GNU GPLv2
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+   
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+       
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
+
+=cut          
+
+#v 1.0
+
+use strict;
+use Munin::Plugin;
+
+my $logfile = $ENV{'logfile'} || '/var/log/IdM/audit.log';
+
+use vars qw ( $config $param $act $scope $descr $cn $vlabel
+        $info $title $label $pos);
+my $unlocks = 0;
+my $ldap = 0;
+my $ad = 0;
+
+# Determine action based on filename first  
+(my $action = $0) =~ s/^.*idm_([\w\d_]+)$/$1/;
+
+my %ops =
+    ('pwd_change'
+     => {
+					'desc' => "Password Changes",
+					'vlabel' => "Changes",
+					'title' => "Password Changes",
+					'info' => "Number of password changed in LDAP and AD",
+					'label2' => {'LDAP' => 'LDAP',
+											 'both' => 'both'}     
+        },
+     'ad_unlock'
+     => {         'desc' => "AD Unlocks",
+         'vlabel' => "Unlocks",
+         'title' => "AD Unlocks",
+         'info' => "Number of AD acct unlocks"
+        },
+    );
+
+sub config {
+    my $action = shift;
+        print <<EOF;
+graph_args --base 1000 -l 0
+graph_vlabel $ops{$action}->{'vlabel'}
+graph_title $ops{$action}->{'title'}
+graph_category IdM
+graph_info $ops{$action}->{'info'}
+EOF
+
+	if ($ops{$action}->{'label2'}) {
+
+  	while (my ($key, $val) = each (%{$ops{$action}->{'label2'}})) {
+    	my $name = $action . "_" . $key;
+      print "$name.label $val\n";   
+      print "$name.type GAUGE\n";
+    }
+
+	} else {
+		print "$action.label $ops{$action}->{'label'}\n";
+    print "$action.type DERIVE\n";
+    print "$action.min 0\n";
+	}
+
+}
+
+if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
+    print "no\n";
+    exit 0;
+}
+
+# If $action isn't in %ops, we quit
+if(!exists $ops{$action}) {
+    die "Unknown action specified: $action";
+}
+
+($pos) = restore_state($logfile);
+
+if (!defined($pos)) {
+    $pos = (stat $logfile)[7] || die "no stat - $logfile\n"; # File size
+} else {
+    $pos = parseLogfile ($logfile, $pos);
+}
+
+if ($action =~ m/pwd_change/) {
+
+	print "LDAP.value $ldap\n";
+	print "both.value $ad\n";
+
+} elsif ($action =~ m/ad_unlock/) {
+
+	print "ad_unlock.value $unlocks\n";
+
+}
+
+#saves the logfile position
+save_state($pos);
+
+sub parseLogfile {
+    my ($fname, $start) = @_;
+
+    my ($logfile,$rotated) = tail_open($fname,$start);
+
+    while (<$logfile>) {
+
+			my $line = $_;
+		
+			$unlocks++ if ($line =~ m/AD account unlocked/);    	
+			$ldap++ if ($line =~ m/password changed in LDAP for/);
+			$ad++ if ($line =~ m/password changed in LDAP and AD for/);
+
+    }
+
+    
+    return tail_close($logfile);
+}
+
