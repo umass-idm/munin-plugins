@@ -96,10 +96,17 @@ EOF
 
 }
 
-if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
-    print "no\n";
-    exit 0;
+if ($ARGV[0]) {
+
+    if ($ARGV[0] eq "autoconf" ) {
+        print "no\n";
+        exit 0;
+    } elsif ($ARGV[0] eq "config") {
+        &config ($action);
+    }
+
 }
+
 
 # If $action isn't in %ops, we quit
 if(!exists $ops{$action}) {
