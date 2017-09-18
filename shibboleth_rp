@@ -151,10 +151,8 @@ sub parseLogfile {
 sub clean_url {
 
   my $name = shift;
-  $name = $1 if ($name =~ m/^htt\d{1.2}\:\/\/(.*?)\/.*$/);
-  $name =~ s/^https\:\/\///;
-  $name =~ s/^http\:\/\///;
-  $name =~ s/\/shibboleth//;
+  $name = $1 if ($name =~ m/^http\:\/\/(.*?)\/.*/);
+  $name = $1 if ($name =~ m/^https\:\/\/(.*?)\/.*/);
 
   #munin doesnt like periods in label names
   $name =~ s/\./\_/g;
