@@ -153,6 +153,8 @@ sub clean_url {
   my $name = shift;
   $name = $1 if ($name =~ m/^http\:\/\/(.*?)\/.*/);
   $name = $1 if ($name =~ m/^https\:\/\/(.*?)\/.*/);
+  $name =~ s|^https\:\/\/||;
+  $name =~ s|^http\:\/\/||;
 
   #munin doesnt like periods in label names
   $name =~ s/\./\_/g;
