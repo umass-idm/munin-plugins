@@ -28,12 +28,12 @@ This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
-   
+
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-       
+
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
@@ -71,11 +71,11 @@ if ($ARGV[0] eq "config") {
     print "graph_scale no\n";
     print "graph_vlabel Logins\n";
     print "graph_category shibboleth\n";
-    
+
     foreach my $var (@stored) {
-      print "$var.label $var\n";    
+        print "$var.label $var\n";    
     }
-    
+
     exit 0;
 }
 
@@ -83,39 +83,39 @@ if ($ARGV[0] eq "config") {
 my ($pos) = restore_state($logfile);
 
 if (!defined($pos)) {
-  $pos = (stat $logfile)[7]; # File size
+    $pos = (stat $logfile)[7]; # File size
 } else {
-  ($pos,@stats) = parseLogfile ($logfile, $pos);
+    ($pos,@stats) = parseLogfile ($logfile, $pos);
 }
 
 foreach my $var (@stats) {
 
-  my ($logins,$name) = split('\s',$var);
-  chomp $logins;
-  my $cname = &clean_url($name);
+    my ($logins,$name) = split('\s',$var);
+    chomp $logins;
+    my $cname = &clean_url($name);
 
-  if ($cname) {
-    push (@current,$cname);
-    print "$cname.value $logins\n"; 
-  }
+    if ($cname) {
+        push (@current,$cname);
+        print "$cname.value $logins\n"; 
+    }
 
 }
 
 #compare and join label arrays
 if (@current) {
 
-  my @joined = (@stored,@current);
-  my %seen = ();
-  my @uniq = grep { ! $seen{ $_ }++ } @joined;
-  my @sorted = sort { lc($a) cmp lc($b) } @uniq;
-  
-  open(LBLS,">$statedir/$plugin-labels") or die "Can't open $statedir/$plugin-labels\n";
+    my @joined = (@stored,@current);
+    my %seen = ();
+    my @uniq = grep { ! $seen{ $_ }++ } @joined;
+    my @sorted = sort { lc($a) cmp lc($b) } @uniq;
 
-  foreach my $var (@sorted) {
-    print LBLS "$var,";    
-  }
+    open(LBLS,">$statedir/$plugin-labels") or die "Can't open $statedir/$plugin-labels\n";
 
-  close(LBLS);
+    foreach my $var (@sorted) {
+        print LBLS "$var,";
+    }
+
+    close(LBLS);
 }
 
 #saves the logfile position
@@ -133,9 +133,9 @@ sub parseLogfile {
         local $/ = undef;
         $data = <$logfile>;
     }
-    
+
     my $closed = tail_close($logfile);
-    
+
     if ($data) {
         my ($in, $out);
         my $pid = open2($out, $in, $tool, '-nq', '-');
@@ -149,25 +149,25 @@ sub parseLogfile {
             push @stats, $line;
         }
     }
-    
+
     return ($closed,@stats);
 }
 
 sub clean_url {
 
-  my $name = shift;
-  $name = $1 if ($name =~ m/^http\:\/\/(.*?)\/.*/);
-  $name = $1 if ($name =~ m/^https\:\/\/(.*?)\/.*/);
-  $name =~ s|^https\:\/\/||;
-  $name =~ s|^http\:\/\/||;
+    my $name = shift;
+    $name = $1 if ($name =~ m/^http\:\/\/(.*?)\/.*/);
+    $name = $1 if ($name =~ m/^https\:\/\/(.*?)\/.*/);
+    $name =~ s|^https\:\/\/||;
+    $name =~ s|^http\:\/\/||;
 
-  #munin doesnt like periods in label names
-  $name =~ s/\./\_/g;
-  
-  #google apps SSO has a different naming scheme
-  if ($name =~ m/^google.com\/a\/(.*)$/) {
-    $name = "googleapps_$1"; 
-  }
-  
-  return $name;
+    #munin doesnt like periods in label names
+    $name =~ s/\./\_/g;
+
+    #google apps SSO has a different naming scheme
+    if ($name =~ m/^google.com\/a\/(.*)$/) {
+        $name = "googleapps_$1";
+    }
+
+    return $name;
 }
