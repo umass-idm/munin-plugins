@@ -44,6 +44,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
 
 use strict;
 use Munin::Plugin;
+use IPC::Open2;
 
 my $plugin = "shibboleth_rp";
 my $logfile = $ENV{'logfile'} || '/opt/shibboleth-idp/logs/idp-audit.log';
@@ -134,15 +135,17 @@ sub parseLogfile {
     $closed = tail_close($logfile);
     
     if ($data) {
-    
-      open(TMP,">/tmp/munin_shibboleth_rp") or die "cant open tmp file";
-      print TMP $data;
-      close(TMP);
-    
-      @stats = `$tool -nq /tmp/munin_shibboleth_rp`;
-      $exit = $?;
-      unlink("/tmp/munin_shibboleth_idp");  
-    
+        my ($in, $out);
+        my $pid = open2($out, $in, $tool, '-nq', '-');
+
+        print $in $data;
+        $in->close();
+
+        my @stats;
+        while (my $line = <$out>) {
+            chomp $line;
+            push @stats, $line;
+        }
     }
     
     return ($closed,@stats);
