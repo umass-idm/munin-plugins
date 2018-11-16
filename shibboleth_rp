@@ -128,8 +128,10 @@ sub parseLogfile {
 
     my ($logfile,$rotated) = tail_open($fname,$start);
 
-    while (<$logfile>) {
-    	$data .= $_;
+    {
+        # slurp mode
+        local $/ = undef;
+        $data = <$logfile>;
     }
     
     $closed = tail_close($logfile);

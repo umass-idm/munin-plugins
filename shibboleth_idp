@@ -106,12 +106,10 @@ sub parseLogfile {
 
     my ($logfile,$rotated) = tail_open($fname,$start);
 
-    my $line;
-
-    while (<$logfile>) {
-    	
-    	$data .= $_;
-
+    {
+        # slurp mode
+        local $/ = undef;
+        $data = <$logfile>;
     }
 
     if ($data) {
