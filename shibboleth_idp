@@ -138,11 +138,3 @@ sub parseLogfile {
 
     return tail_close($logfile);
 }
-
-#my $date = `date`;
-#chomp $date;
-
-#open(DEBUG,">>/var/log/munin/munin-debug.log") or die "cant open debug\n";
-#print DEBUG "$date-$pos,$relyp,$unique,$login,$exit\n";
-#close(DEBUG);
-
