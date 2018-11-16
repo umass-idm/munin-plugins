@@ -112,7 +112,6 @@ sub parseLogfile {
         $data = <$logfile>;
     }
 
-    my @vars;
     if ($data) {
         my ($in, $out);
         my $pid = open2($out, $in, $tool, '-cul', '-');
@@ -120,22 +119,23 @@ sub parseLogfile {
         print $in $data;
         $in->close();
 
+        my @vars;
         while (my $line = <$out>) {
             chomp $line;
             push @vars, $line;
         }
         $out->close();
         waitpid($pid, 0);
+
+        my @relyps = split('\s',$vars[0]);
+        $relyp = $relyps[0] || 0;
+
+        my @uniques = split('\s',$vars[1]);
+        $unique = $uniques[0] || 0;
+
+        my @logins = split('\s',$vars[2]);
+        $login = $logins[0] || 0;
     }
-
-    my @relyps = split('\s',$vars[0]);
-    $relyp = $relyps[0] || 0;
-
-    my @uniques = split('\s',$vars[1]);
-    $unique = $uniques[0] || 0;
-    
-    my @logins = split('\s',$vars[2]);
-    $login = $logins[0] || 0; 
 
     return tail_close($logfile);
 }
