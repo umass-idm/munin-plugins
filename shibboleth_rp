@@ -53,7 +53,6 @@ my $statedir = $ENV{'statedir'} || '/var/lib/munin/plugin-state/nobody';
 
 die "Can't find the IdP Audit Log Tool at $tool\n" if (! -f $tool);
 
-my ($pos,$data,$uniq,$labels,$closed,$exit) = undef;
 my (@stored,@stats,@current) = undef;
 
 if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
@@ -62,7 +61,7 @@ if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
 }
 
 #read in our saved labels
-$labels = `cat $statedir/$plugin-labels`;
+my $labels = `cat $statedir/$plugin-labels`;
 @stored = split(",",$labels);
 #
 
@@ -81,7 +80,7 @@ if ($ARGV[0] eq "config") {
 }
 
 
-($pos) = restore_state($logfile);
+my ($pos) = restore_state($logfile);
 
 if (!defined($pos)) {
   $pos = (stat $logfile)[7]; # File size
@@ -128,13 +127,14 @@ sub parseLogfile {
 
     my ($logfile,$rotated) = tail_open($fname,$start);
 
+    my $data;
     {
         # slurp mode
         local $/ = undef;
         $data = <$logfile>;
     }
     
-    $closed = tail_close($logfile);
+    my $closed = tail_close($logfile);
     
     if ($data) {
         my ($in, $out);

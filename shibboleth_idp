@@ -55,7 +55,6 @@ my $tool = $ENV{'tool'} || '/usr/local/sbin/shibboleth-audit.py';
 
 die "IdP Audit Log Tool is missing\n" if (! -f $tool);
 
-my ($pos,$data,$stats,$exit) = undef;
 my $relyp = 0;
 my $unique = 0;
 my $login = 0;
@@ -85,7 +84,7 @@ if (! -f $logfile) {
     exit 1;
 }
 
-($pos) = restore_state($logfile);
+my ($pos) = restore_state($logfile);
 
 if (!defined($pos)) {
     $pos = (stat $logfile)[7]; # File size
@@ -106,12 +105,14 @@ sub parseLogfile {
 
     my ($logfile,$rotated) = tail_open($fname,$start);
 
+    my $data;
     {
         # slurp mode
         local $/ = undef;
         $data = <$logfile>;
     }
 
+    my @vars;
     if ($data) {
         my ($in, $out);
         my $pid = open2($out, $in, $tool, '-cul', '-');
