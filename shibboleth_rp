@@ -38,7 +38,7 @@ You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
 
-=cut          
+=cut
 
 #v 1.0
 
@@ -73,7 +73,7 @@ if ($ARGV[0] eq "config") {
     print "graph_category shibboleth\n";
 
     foreach my $var (@stored) {
-        print "$var.label $var\n";    
+        print "$var.label $var\n";
     }
 
     exit 0;
@@ -96,7 +96,7 @@ foreach my $var (@stats) {
 
     if ($cname) {
         push (@current,$cname);
-        print "$cname.value $logins\n"; 
+        print "$cname.value $logins\n";
     }
 
 }
