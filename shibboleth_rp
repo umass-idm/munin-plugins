@@ -88,7 +88,9 @@ if ($ARGV[0] eq "config") {
 my ($pos) = restore_state($logfile);
 
 if (!defined($pos)) {
-    $pos = (stat $logfile)[7]; # File size
+    # first run: do not read log file now, to avoid start spike,
+    # but remember how large it is, and start from here next time
+    $pos = (stat $logfile)[7];
 } else {
     ($pos,@stats) = parseLogfile ($logfile, $pos);
 }
