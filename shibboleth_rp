@@ -50,6 +50,7 @@ my $plugin = "shibboleth_rp";
 my $logfile = $ENV{'logfile'} || '/opt/shibboleth-idp/logs/idp-audit.log';
 my $tool = $ENV{'tool'} || '/usr/local/sbin/shibboleth-audit.py';
 my $statedir = $ENV{'statedir'} || '/var/lib/munin/plugin-state/nobody';
+my $labels_file = "$statedir/$plugin-labels";
 
 die "Can't find the IdP Audit Log Tool at $tool\n" if (! -f $tool);
 
@@ -61,8 +62,10 @@ if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
 }
 
 #read in our saved labels
-my $labels = `cat $statedir/$plugin-labels`;
-@stored = split(",",$labels);
+if (-f $labels_file) {
+    my $labels = `cat $labels_file`;
+    @stored = split(",",$labels);
+}
 #
 
 if ($ARGV[0] eq "config") {
@@ -109,7 +112,7 @@ if (@current) {
     my @uniq = grep { ! $seen{ $_ }++ } @joined;
     my @sorted = sort { lc($a) cmp lc($b) } @uniq;
 
-    open(LBLS,">$statedir/$plugin-labels") or die "Can't open $statedir/$plugin-labels\n";
+    open(LBLS,">$labels_file") or die "Can't open $labels_file\n";
 
     foreach my $var (@sorted) {
         print LBLS "$var,";
