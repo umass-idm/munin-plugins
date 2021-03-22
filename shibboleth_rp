@@ -63,7 +63,9 @@ if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
 
 #read in our saved labels
 if (-f $labels_file) {
-    my $labels = `cat $labels_file`;
+    open(my $handle, '<', $labels_file) or die "Can't open $labels_file\n";
+    my $labels = <$handle>;
+    close($handle),
     @stored = split(",",$labels);
 }
 #
