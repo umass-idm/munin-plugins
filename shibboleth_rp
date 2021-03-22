@@ -116,13 +116,9 @@ if (@current) {
     my @uniq = grep { ! $seen{ $_ }++ } @joined;
     my @sorted = sort { lc($a) cmp lc($b) } @uniq;
 
-    open(LBLS,">$labels_file") or die "Can't open $labels_file\n";
-
-    foreach my $var (@sorted) {
-        print LBLS "$var,";
-    }
-
-    close(LBLS);
+    open(my $handle, '>', $labels_file) or die "Can't open $labels_file\n";
+    print $handle join(',', @sorted);
+    close($handle);
 }
 
 #saves the logfile position
