@@ -92,7 +92,7 @@ foreach my $var (@stats) {
 
     my ($logins,$name) = split('\s',$var);
     chomp $logins;
-    my $cname = &clean_url($name);
+    my $cname = clean_url($name);
 
     if ($cname) {
         push (@current,$cname);
