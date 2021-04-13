@@ -138,6 +138,7 @@ sub parseLogfile {
     }
 
     my $closed = tail_close($logfile);
+    my @stats;
 
     if ($data) {
         my ($in, $out);
@@ -146,7 +147,6 @@ sub parseLogfile {
         print $in $data;
         $in->close();
 
-        my @stats;
         while (my $line = <$out>) {
             chomp $line;
             push @stats, $line;
