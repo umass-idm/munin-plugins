@@ -32,29 +32,29 @@ This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
-   
+
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-       
+
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
 
-=cut          
+=cut
 
 #v 1.0
 
 use strict;
 use Munin::Plugin;
+use IPC::Open2;
 
 my $logfile = $ENV{'logfile'} || '/opt/shibboleth-idp/logs/idp-audit.log';
 my $tool = $ENV{'tool'} || '/usr/local/sbin/shibboleth-audit.py';
 
 die "IdP Audit Log Tool is missing\n" if (! -f $tool);
 
-my ($pos,$data,$stats,$exit) = undef;
 my $relyp = 0;
 my $unique = 0;
 my $login = 0;
@@ -84,10 +84,12 @@ if (! -f $logfile) {
     exit 1;
 }
 
-($pos) = restore_state($logfile);
+my ($pos) = restore_state($logfile);
 
 if (!defined($pos)) {
-    $pos = (stat $logfile)[7]; # File size
+    # first run: do not read log file now, to avoid start spike,
+    # but remember how large it is, and start from here next time
+    $pos = (stat $logfile)[7];
 } else {
     $pos = parseLogfile ($logfile, $pos);
 }
@@ -105,43 +107,37 @@ sub parseLogfile {
 
     my ($logfile,$rotated) = tail_open($fname,$start);
 
-    my $line;
-
-    while (<$logfile>) {
-    	
-    	$data .= $_;
-
+    my $data;
+    {
+        # slurp mode
+        local $/ = undef;
+        $data = <$logfile>;
     }
 
     if ($data) {
-    
-        open(TMP,">/tmp/munin_shibboleth_idp") or die "cant open tmp file";
-        print TMP $data;
-        close(TMP);
-        
-        $stats = `$tool -cul /tmp/munin_shibboleth_idp`;
-        $exit = $?;
-        unlink("/tmp/munin_shibboleth_idp");
+        my ($in, $out);
+        my $pid = open2($out, $in, $tool, '-cul', '-');
+
+        print $in $data;
+        $in->close();
+
+        my @vars;
+        while (my $line = <$out>) {
+            chomp $line;
+            push @vars, $line;
+        }
+        $out->close();
+        waitpid($pid, 0);
+
+        my @relyps = split('\s',$vars[0]);
+        $relyp = $relyps[0] || 0;
+
+        my @uniques = split('\s',$vars[1]);
+        $unique = $uniques[0] || 0;
+
+        my @logins = split('\s',$vars[2]);
+        $login = $logins[0] || 0;
     }
-    
-    my @vars = split('\n',$stats);
-
-    my @relyps = split('\s',$vars[0]);
-    $relyp = $relyps[0] || 0;
-
-    my @uniques = split('\s',$vars[1]);
-    $unique = $uniques[0] || 0;
-    
-    my @logins = split('\s',$vars[2]);
-    $login = $logins[0] || 0; 
 
     return tail_close($logfile);
 }
-
-#my $date = `date`;
-#chomp $date;
-
-#open(DEBUG,">>/var/log/munin/munin-debug.log") or die "cant open debug\n";
-#print DEBUG "$date-$pos,$relyp,$unique,$login,$exit\n";
-#close(DEBUG);
-

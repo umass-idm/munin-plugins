@@ -28,31 +28,32 @@ This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
-   
+
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
-       
+
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
 
-=cut          
+=cut
 
 #v 1.0
 
 use strict;
 use Munin::Plugin;
+use IPC::Open2;
 
 my $plugin = "shibboleth_rp";
 my $logfile = $ENV{'logfile'} || '/opt/shibboleth-idp/logs/idp-audit.log';
 my $tool = $ENV{'tool'} || '/usr/local/sbin/shibboleth-audit.py';
 my $statedir = $ENV{'statedir'} || '/var/lib/munin/plugin-state/nobody';
+my $labels_file = "$statedir/$plugin-labels";
 
 die "Can't find the IdP Audit Log Tool at $tool\n" if (! -f $tool);
 
-my ($pos,$data,$uniq,$labels,$closed,$exit) = undef;
 my (@stored,@stats,@current) = undef;
 
 if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
@@ -61,8 +62,12 @@ if ( $ARGV[0] and $ARGV[0] eq "autoconf" ) {
 }
 
 #read in our saved labels
-$labels = `cat $statedir/$plugin-labels`;
-@stored = split(",",$labels);
+if (-f $labels_file) {
+    open(my $handle, '<', $labels_file) or die "Can't open $labels_file\n";
+    my $labels = <$handle>;
+    close($handle),
+    @stored = split(",",$labels);
+}
 #
 
 if ($ARGV[0] eq "config") {
@@ -71,51 +76,49 @@ if ($ARGV[0] eq "config") {
     print "graph_scale no\n";
     print "graph_vlabel Logins\n";
     print "graph_category shibboleth\n";
-    
+
     foreach my $var (@stored) {
-      print "$var.label $var\n";    
+        print "$var.label $var\n";
     }
-    
+
     exit 0;
 }
 
 
-($pos) = restore_state($logfile);
+my ($pos) = restore_state($logfile);
 
 if (!defined($pos)) {
-  $pos = (stat $logfile)[7]; # File size
+    # first run: do not read log file now, to avoid start spike,
+    # but remember how large it is, and start from here next time
+    $pos = (stat $logfile)[7];
 } else {
-  ($pos,@stats) = parseLogfile ($logfile, $pos);
+    ($pos,@stats) = parseLogfile ($logfile, $pos);
 }
 
 foreach my $var (@stats) {
 
-  my ($logins,$name) = split('\s',$var);
-  chomp $logins;
-  my $cname = &clean_url($name);
+    my ($logins,$name) = split('\s',$var);
+    chomp $logins;
+    my $cname = clean_url($name);
 
-  if ($cname) {
-    push (@current,$cname);
-    print "$cname.value $logins\n"; 
-  }
+    if ($cname) {
+        push (@current,$cname);
+        print "$cname.value $logins\n";
+    }
 
 }
 
 #compare and join label arrays
 if (@current) {
 
-  my @joined = (@stored,@current);
-  my %seen = ();
-  my @uniq = grep { ! $seen{ $_ }++ } @joined;
-  my @sorted = sort { lc($a) cmp lc($b) } @uniq;
-  
-  open(LBLS,">$statedir/$plugin-labels") or die "Can't open $statedir/$plugin-labels\n";
+    my @joined = (@stored,@current);
+    my %seen = ();
+    my @uniq = grep { ! $seen{ $_ }++ } @joined;
+    my @sorted = sort { lc($a) cmp lc($b) } @uniq;
 
-  foreach my $var (@sorted) {
-    print LBLS "$var,";    
-  }
-
-  close(LBLS);
+    open(my $handle, '>', $labels_file) or die "Can't open $labels_file\n";
+    print $handle join(',', @sorted);
+    close($handle);
 }
 
 #saves the logfile position
@@ -127,42 +130,47 @@ sub parseLogfile {
 
     my ($logfile,$rotated) = tail_open($fname,$start);
 
-    while (<$logfile>) {
-    	$data .= $_;
+    my $data;
+    {
+        # slurp mode
+        local $/ = undef;
+        $data = <$logfile>;
     }
-    
-    $closed = tail_close($logfile);
-    
+
+    my $closed = tail_close($logfile);
+    my @stats;
+
     if ($data) {
-    
-      open(TMP,">/tmp/munin_shibboleth_rp") or die "cant open tmp file";
-      print TMP $data;
-      close(TMP);
-    
-      @stats = `$tool -nq /tmp/munin_shibboleth_rp`;
-      $exit = $?;
-      unlink("/tmp/munin_shibboleth_idp");  
-    
+        my ($in, $out);
+        my $pid = open2($out, $in, $tool, '-nq', '-');
+
+        print $in $data;
+        $in->close();
+
+        while (my $line = <$out>) {
+            chomp $line;
+            push @stats, $line;
+        }
     }
-    
+
     return ($closed,@stats);
 }
 
 sub clean_url {
 
-  my $name = shift;
-  $name = $1 if ($name =~ m/^http\:\/\/(.*?)\/.*/);
-  $name = $1 if ($name =~ m/^https\:\/\/(.*?)\/.*/);
-  $name =~ s|^https\:\/\/||;
-  $name =~ s|^http\:\/\/||;
+    my $name = shift;
+    $name = $1 if ($name =~ m/^http\:\/\/(.*?)\/.*/);
+    $name = $1 if ($name =~ m/^https\:\/\/(.*?)\/.*/);
+    $name =~ s|^https\:\/\/||;
+    $name =~ s|^http\:\/\/||;
 
-  #munin doesnt like periods in label names
-  $name =~ s/\./\_/g;
-  
-  #google apps SSO has a different naming scheme
-  if ($name =~ m/^google.com\/a\/(.*)$/) {
-    $name = "googleapps_$1"; 
-  }
-  
-  return $name;
+    #munin doesnt like periods in label names
+    $name =~ s/\./\_/g;
+
+    #google apps SSO has a different naming scheme
+    if ($name =~ m/^google.com\/a\/(.*)$/) {
+        $name = "googleapps_$1";
+    }
+
+    return $name;
 }
